@@ -1,0 +1,6 @@
+struct ExampleMessage {
+    string first_name;
+    string last_name;
+    octet age;
+    unsigned long score;
+};
