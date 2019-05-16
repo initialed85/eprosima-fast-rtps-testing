@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-TAG=eprosima-fast-rtps-testing-build
+TAG=eprosima-fast-rtps-testing-build-arm32v7
 
-docker build -t ${TAG} .
+docker build -t ${TAG} arm32v7/
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
