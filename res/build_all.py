@@ -2,9 +2,11 @@ import os
 import shlex
 import subprocess
 
-_IDL_PATH = '/srv/src'
-_STUBS_PATH = '/srv/stubs'
-_EXAMPLES_PATH = '/srv/examples'
+_BASE_PATH = '/srv'
+_IDL_PATH = '{}/src'.format(_BASE_PATH)
+_STUBS_PATH = '{}/stubs'.format(_BASE_PATH)
+_EXAMPLES_PATH = '{}/examples'.format(_BASE_PATH)
+_FASTRTPSGEN_PATH = '{}/install/bin/fastrtpsgen'.format(_BASE_PATH)
 
 
 def _execute(cmd):
@@ -23,7 +25,36 @@ def _execute(cmd):
     )
 
 
+def _print_execute_output(some_out, some_err, some_ret):
+    names_and_variables = [
+        ('STDOUT', some_out),
+        ('STDERR', some_err),
+        ('RETURN', some_ret),
+    ]
+
+    parts = []
+
+    for name, variable in names_and_variables:
+        if variable is None or (isinstance(variable, str) and variable.strip() == ''):
+            continue
+
+        parts += ['{}: {}'.format(
+            name,
+            '\n{}'.format(variable.strip()) if isinstance(variable, str) else variable
+        )]
+
+    print('\n\n'.join(parts))
+
+
 class FastRTPSGenError(Exception):
+    pass
+
+
+class CMakeError(Exception):
+    pass
+
+
+class MakeError(Exception):
     pass
 
 
@@ -38,12 +69,12 @@ for idl_folder in os.listdir(_IDL_PATH):
         idl_path = os.path.join(_IDL_PATH, idl_folder, idl_file)
 
         tasks = [
-            ('stubs', _STUBS_PATH, 'fastrtpsgen -d {} {}'),
-            ('examples', _EXAMPLES_PATH, 'fastrtpsgen -d {} -example CMake {}'),
+            ('stubs', _STUBS_PATH, '{} -d {} {}'),
+            ('examples', _EXAMPLES_PATH, '{} -d {} -example CMake {}'),
         ]
 
         for name, path_prefix, cmd_template in tasks:
-            print('------ Generating {}\n'.format(name))
+            print('------ Generating code for {}\n'.format(name))
 
             path = os.path.join(path_prefix, idl_folder)
 
@@ -51,16 +82,13 @@ for idl_folder in os.listdir(_IDL_PATH):
 
             out, err, ret = _execute(
                 cmd_template.format(
+                    _FASTRTPSGEN_PATH,
                     path,
                     idl_path,
                 )
             )
 
-            print('STDOUT:\n{}\n\nSTDERR:\n{}\n\nRETURN: {}\n'.format(
-                out,
-                err,
-                ret
-            ))
+            _print_execute_output(out, err, ret)
 
             if ret == 0:
                 continue
@@ -70,3 +98,40 @@ for idl_folder in os.listdir(_IDL_PATH):
                     ret,
                 )
             )
+
+for name in os.listdir(_EXAMPLES_PATH):
+    print('------ Building examples for {}\n'.format(name))
+
+    build_dir = os.path.join(_EXAMPLES_PATH, name, 'build')
+
+    os.mkdir(build_dir)
+
+    os.chdir(build_dir)
+
+    out, err, ret = _execute(
+        'cmake -DCMAKE_TOOLCHAIN_FILE=/srv/toolchain.cmake -DCMAKE_PREFIX_PATH=/srv/install ..'
+    )
+
+    _print_execute_output(out, err, ret)
+
+    if ret != 0:
+        raise CMakeError(
+            'attempt to execute cmake returned {}; see printed output'.format(
+                ret,
+            )
+        )
+
+    out, err, ret = _execute(
+        'make'
+    )
+
+    _print_execute_output(out, err, ret)
+
+    if ret != 0:
+        raise MakeError(
+            'attempt to execute make returned {}; see printed output'.format(
+                ret,
+            )
+        )
+
+os.chdir(_BASE_PATH)

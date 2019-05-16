@@ -1,6 +1,7 @@
 FROM ubuntu:16.04
 
-RUN apt-get update && apt-get install -y git default-jdk-headless gradle build-essential cmake python3
+RUN apt-get update && apt-get install -y \
+    git default-jdk-headless gradle build-essential cmake python3
 
 WORKDIR /srv/
 
@@ -15,7 +16,14 @@ RUN mkdir -p /srv/Fast-RTPS/build
 
 WORKDIR /srv/Fast-RTPS/build
 
-RUN cmake -DTHIRDPARTY=ON -DBUILD_JAVA=ON ..
+RUN touch /srv/toolchain.cmake
+
+RUN mkdir -p /srv/install/
+
+RUN cmake -DTHIRDPARTY=ON -DBUILD_JAVA=ON \
+    -DCMAKE_TOOLCHAIN_FILE=/srv/toolchain.cmake \
+    -DCMAKE_INSTALL_PREFIX=/srv/install/ \
+    ..
 
 RUN make
 
